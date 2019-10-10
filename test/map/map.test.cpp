@@ -267,6 +267,7 @@ TEST(Map, Offline) {
         return response;
     };
 
+    NetworkStatus::Set(NetworkStatus::Status::Offline);
     const std::string prefix = "http://127.0.0.1:3000/";
     auto dbfs = FileSourceManager::get()->getFileSource(FileSourceType::Database, ResourceOptions{});
     dbfs->forward(Resource::style(prefix + "style.json"), expiredItem("style.json"));
@@ -276,10 +277,8 @@ TEST(Map, Offline) {
     dbfs->forward(Resource::tile(prefix + "{z}-{x}-{y}.vector.pbf", 1.0, 0, 0, 0, Tileset::Scheme::XYZ),
                   expiredItem("0-0-0.vector.pbf"));
     dbfs->forward(Resource::glyphs(prefix + "{fontstack}/{range}.pbf", {{"Helvetica"}}, {0, 255}),
-                  expiredItem("glyph.pbf"));
-    NetworkStatus::Set(NetworkStatus::Status::Offline);
-
-    test.map.getStyle().loadURL(prefix + "style.json");
+                  expiredItem("glyph.pbf"),
+                  [&] { test.map.getStyle().loadURL(prefix + "style.json"); });
 
     test::checkImage("test/fixtures/map/offline", test.frontend.render(test.map).image, 0.0015, 0.1);
 
@@ -808,33 +807,33 @@ TEST(Map, NoContentTiles) {
     response.noContent = true;
     response.expires = util::now() + 1h;
     auto dbfs = FileSourceManager::get()->getFileSource(FileSourceType::Database, ResourceOptions{});
-    dbfs->forward(Resource::tile("http://example.com/{z}-{x}-{y}.vector.pbf", 1.0, 0, 0, 0, Tileset::Scheme::XYZ),
-                  response);
-
-    test.map.getStyle().loadJSON(R"STYLE({
-      "version": 8,
-      "name": "Water",
-      "sources": {
-        "mapbox": {
-          "type": "vector",
-          "tiles": ["http://example.com/{z}-{x}-{y}.vector.pbf"]
-        }
-      },
-      "layers": [{
-        "id": "background",
-        "type": "background",
-        "paint": {
-          "background-color": "red"
-        }
-      }, {
-        "id": "water",
-        "type": "fill",
-        "source": "mapbox",
-        "source-layer": "water"
-      }]
-    })STYLE");
-
+    dbfs->forward(
+        Resource::tile("http://example.com/{z}-{x}-{y}.vector.pbf", 1.0, 0, 0, 0, Tileset::Scheme::XYZ), response, [&] {
+            test.map.getStyle().loadJSON(R"STYLE({
+                        "version": 8,
+                        "name": "Water",
+                        "sources": {
+                            "mapbox": {
+                            "type": "vector",
+                            "tiles": ["http://example.com/{z}-{x}-{y}.vector.pbf"]
+                            }
+                        },
+                        "layers": [{
+                            "id": "background",
+                            "type": "background",
+                            "paint": {
+                            "background-color": "red"
+                            }
+                        }, {
+                            "id": "water",
+                            "type": "fill",
+                            "source": "mapbox",
+                            "source-layer": "water"
+                        }]
+                        })STYLE");
+        });
     test::checkImage("test/fixtures/map/nocontent", test.frontend.render(test.map).image, 0.0015, 0.1);
+
 }
 
 // https://github.com/mapbox/mapbox-gl-native/issues/12432
