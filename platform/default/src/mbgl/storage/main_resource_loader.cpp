@@ -116,6 +116,8 @@ private:
                     if (!response.noContent) {
                         if (response.isUsable()) {
                             callback(response);
+                            // Set the priority of existing resource to low if it's expired but usable.
+                            res.setPriority(Resource::Priority::Low);
                         }
 
                         // Copy response fields for cache control request
