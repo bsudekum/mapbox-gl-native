@@ -665,9 +665,9 @@ TEST(MainResourceLoader, TEST_REQUIRES_SERVER(RespondToStaleMustRevalidate)) {
 }
 
 // Test that requests for expired resources have lower priority than requests for new resources
-TEST(DefaultFileSource, TEST_REQUIRES_SERVER(CachedResourceLowPriority)) {
+TEST(MainResourceLoader, TEST_REQUIRES_SERVER(CachedResourceLowPriority)) {
     util::RunLoop loop;
-    DefaultFileSource fs(":memory:", ".");
+    MainResourceLoader fs(ResourceOptions{});
 
     Response response;
     std::size_t online_response_counter = 0;
@@ -675,16 +675,20 @@ TEST(DefaultFileSource, TEST_REQUIRES_SERVER(CachedResourceLowPriority)) {
     using namespace std::chrono_literals;
     response.expires = util::now() - 1h;
 
+    auto dbfs = FileSourceManager::get()->getFileSource(FileSourceType::Database, ResourceOptions{});
+    auto onlineFs = FileSourceManager::get()->getFileSource(FileSourceType::Network, ResourceOptions{});
+
     // Put existing values into the cache.
     Resource resource1{Resource::Unknown, "http://127.0.0.1:3000/load/3", {}, Resource::LoadingMethod::All};
     response.data = std::make_shared<std::string>("Cached Request 3");
-    fs.put(resource1, response);
+    dbfs->forward(resource1, response);
 
     Resource resource2{Resource::Unknown, "http://127.0.0.1:3000/load/4", {}, Resource::LoadingMethod::All};
     response.data = std::make_shared<std::string>("Cached Request 4");
-    fs.put(resource2, response);
+    dbfs->forward(resource2, response);
 
-    fs.setMaximumConcurrentRequests(1);
+    onlineFs->setProperty("max-concurrent-requests", 1u);
+    fs.pause();
     NetworkStatus::Set(NetworkStatus::Status::Offline);
 
     // Ensure that the online requests for new resources are processed first.
@@ -694,14 +698,6 @@ TEST(DefaultFileSource, TEST_REQUIRES_SERVER(CachedResourceLowPriority)) {
         req1.reset();
         EXPECT_EQ(online_response_counter, 1); // make sure this is responded first
         EXPECT_EQ("Request 1", *res.data);
-    });
-
-    Resource nonCached2{Resource::Unknown, "http://127.0.0.1:3000/load/2", {}, Resource::LoadingMethod::All};
-    std::unique_ptr<AsyncRequest> req2 = fs.request(nonCached2, [&](Response res) {
-        online_response_counter++;
-        req2.reset();
-        EXPECT_EQ(online_response_counter, 2); // make sure this is responded second
-        EXPECT_EQ("Request 2", *res.data);
     });
 
     bool req3CachedResponseReceived = false;
@@ -733,6 +729,15 @@ TEST(DefaultFileSource, TEST_REQUIRES_SERVER(CachedResourceLowPriority)) {
         }
     });
 
+    Resource nonCached2{Resource::Unknown, "http://127.0.0.1:3000/load/2", {}, Resource::LoadingMethod::All};
+    std::unique_ptr<AsyncRequest> req2 = fs.request(nonCached2, [&](Response res) {
+        online_response_counter++;
+        req2.reset();
+        EXPECT_EQ(online_response_counter, 2); // make sure this is responded second
+        EXPECT_EQ("Request 2", *res.data);
+    });
+
+    fs.resume();
     NetworkStatus::Set(NetworkStatus::Status::Online);
 
     loop.run();

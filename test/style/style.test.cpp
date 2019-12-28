@@ -106,7 +106,7 @@ TEST(Style, RemoveSourceInUse) {
 
 TEST(Style, SourceImplsOrder) {
     util::RunLoop loop;
-    StubFileSource fileSource;
+    auto fileSource = std::make_shared<StubFileSource>();
     Style::Impl style{fileSource, 1.0};
 
     style.addSource(std::make_unique<VectorSource>("c", "mapbox://mapbox.mapbox-terrain-v2"));

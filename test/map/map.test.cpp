@@ -833,7 +833,6 @@ TEST(Map, NoContentTiles) {
                         })STYLE");
         });
     test::checkImage("test/fixtures/map/nocontent", test.frontend.render(test.map).image, 0.0015, 0.1);
-
 }
 
 // https://github.com/mapbox/mapbox-gl-native/issues/12432
