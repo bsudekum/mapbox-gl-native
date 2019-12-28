@@ -45,6 +45,10 @@ public:
 
     void resetDatabase(std::function<void(std::exception_ptr)> callback) { callback(db->resetDatabase()); }
 
+    void packDatabase(std::function<void(std::exception_ptr)> callback) { callback(db->pack()); }
+
+    void runPackDatabaseAutomatically(bool autopack) { db->runPackDatabaseAutomatically(autopack); }
+
     void put(const Resource& resource, const Response& response) { db->put(resource, response); }
 
     void invalidateAmbientCache(std::function<void(std::exception_ptr)> callback) {
@@ -179,6 +183,14 @@ void DatabaseFileSource::setDatabasePath(const std::string& path, DatabasePathCh
 
 void DatabaseFileSource::resetDatabase(std::function<void(std::exception_ptr)> callback) {
     impl->actor().invoke(&DatabaseFileSourceThread::resetDatabase, std::move(callback));
+}
+
+void DatabaseFileSource::packDatabase(std::function<void(std::exception_ptr)> callback) {
+    impl->actor().invoke(&DatabaseFileSourceThread::packDatabase, std::move(callback));
+}
+
+void DatabaseFileSource::runPackDatabaseAutomatically(bool autopack) {
+    impl->actor().invoke(&DatabaseFileSourceThread::runPackDatabaseAutomatically, autopack);
 }
 
 void DatabaseFileSource::put(const Resource& resource, const Response& response) {
