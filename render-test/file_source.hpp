@@ -1,18 +1,16 @@
 #pragma once
 
-#include <mbgl/storage/default_file_source.hpp>
+#include <mbgl/storage/file_source.hpp>
 
 namespace mbgl {
 
-class ProxyFileSource : public DefaultFileSource {
+class ProxyFileSource : public FileSource {
 public:
-    ProxyFileSource(const std::string& cachePath, const std::string& assetPath, bool supportCacheOnlyRequests = true);
-    ProxyFileSource(const std::string& cachePath,
-                    std::unique_ptr<FileSource>&& assetFileSource,
-                    bool supportCacheOnlyRequests = true);
+    ProxyFileSource(std::shared_ptr<FileSource>);
     ~ProxyFileSource();
 
-    std::unique_ptr<AsyncRequest> request(const Resource&, Callback);
+    std::unique_ptr<AsyncRequest> request(const Resource&, Callback) override;
+    bool canRequest(const Resource&) const override { return true; }
 
     /**
      * @brief Starts/stops metrics tracking.
@@ -35,6 +33,9 @@ public:
      * @return size_t
      */
     static size_t getTransferredSize();
+
+private:
+    std::shared_ptr<FileSource> defaultResourceLoader;
 };
 
 } // namespace mbgl
