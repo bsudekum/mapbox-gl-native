@@ -57,9 +57,15 @@ void FileSourceManager::registerFileSourceFactory(FileSourceType type, FileSourc
     impl->fileSourceFactories[type] = std::move(factory);
 }
 
-void FileSourceManager::unRegisterFileSourceFactory(FileSourceType type) noexcept {
+FileSourceManager::FileSourceFactory FileSourceManager::unRegisterFileSourceFactory(FileSourceType type) noexcept {
     std::lock_guard<std::recursive_mutex> lock(impl->mutex);
-    impl->fileSourceFactories.erase(type);
+    auto it = impl->fileSourceFactories.find(type);
+    FileSourceFactory factory;
+    if (it != impl->fileSourceFactories.end()) {
+        factory = std::move(it->second);
+        impl->fileSourceFactories.erase(it);
+    }
+    return factory;
 }
 
 } // namespace mbgl

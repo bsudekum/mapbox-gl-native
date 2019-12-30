@@ -38,7 +38,7 @@ public:
 
     // Unregisters file source factory. If there are no registered factories for a FileSourceType
     // invocation has no effect.
-    virtual void unRegisterFileSourceFactory(FileSourceType) noexcept;
+    virtual FileSourceFactory unRegisterFileSourceFactory(FileSourceType) noexcept;
 
 protected:
     FileSourceManager();
