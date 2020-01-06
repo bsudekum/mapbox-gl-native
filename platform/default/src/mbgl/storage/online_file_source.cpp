@@ -93,57 +93,55 @@ public:
         tasks.erase(it);
     }
 
-    void add(OnlineFileRequest* request) {
-        allRequests.insert(request);
+    void add(OnlineFileRequest* req) {
+        allRequests.insert(req);
         if (resourceTransform) {
             // Request the ResourceTransform actor a new url and replace the resource url with the
             // transformed one before proceeding to schedule the request.
             resourceTransform.transform(
-                request->resource.kind, request->resource.url, [ref = request->actor()](const std::string& url) {
+                req->resource.kind, req->resource.url, [ref = req->actor()](const std::string& url) {
                     ref.invoke(&OnlineFileRequest::setTransformedURL, url);
                 });
         } else {
-            request->schedule();
+            req->schedule();
         }
     }
 
-    void remove(OnlineFileRequest* request) {
-        allRequests.erase(request);
-        if (activeRequests.erase(request)) {
+    void remove(OnlineFileRequest* req) {
+        allRequests.erase(req);
+        if (activeRequests.erase(req)) {
             activatePendingRequest();
         } else {
-            pendingRequests.remove(request);
+            pendingRequests.remove(req);
         }
     }
 
-    void activateOrQueueRequest(OnlineFileRequest* request) {
-        assert(allRequests.find(request) != allRequests.end());
-        assert(activeRequests.find(request) == activeRequests.end());
-        assert(!request->request);
+    void activateOrQueueRequest(OnlineFileRequest* req) {
+        assert(allRequests.find(req) != allRequests.end());
+        assert(activeRequests.find(req) == activeRequests.end());
+        assert(!req->request);
 
         if (activeRequests.size() >= getMaximumConcurrentRequests()) {
-            queueRequest(request);
+            queueRequest(req);
         } else {
-            activateRequest(request);
+            activateRequest(req);
         }
     }
 
-    void queueRequest(OnlineFileRequest* request) {
-        pendingRequests.insert(request);
-    }
+    void queueRequest(OnlineFileRequest* req) { pendingRequests.insert(req); }
 
-    void activateRequest(OnlineFileRequest* request) {
+    void activateRequest(OnlineFileRequest* req) {
         auto callback = [=](Response response) {
-            activeRequests.erase(request);
-            request->request.reset();
-            request->completed(response);
+            activeRequests.erase(req);
+            req->request.reset();
+            req->completed(response);
             activatePendingRequest();
         };
 
-        activeRequests.insert(request);
+        activeRequests.insert(req);
 
         if (online) {
-            request->request = httpFileSource.request(request->resource, callback);
+            req->request = httpFileSource.request(req->resource, callback);
         } else {
             Response response;
             response.error = std::make_unique<Response::Error>(Response::Error::Reason::Connection,
@@ -153,19 +151,16 @@ public:
     }
 
     void activatePendingRequest() {
+        auto req = pendingRequests.pop();
 
-        auto request = pendingRequests.pop();
-
-        if (request) {
-            activateRequest(*request);
+        if (req) {
+            activateRequest(*req);
         }
     }
 
-    bool isPending(OnlineFileRequest* request) {
-        return pendingRequests.contains(request);
-    }
+    bool isPending(OnlineFileRequest* req) { return pendingRequests.contains(req); }
 
-    bool isActive(OnlineFileRequest* request) { return activeRequests.find(request) != activeRequests.end(); }
+    bool isActive(OnlineFileRequest* req) { return activeRequests.find(req) != activeRequests.end(); }
 
     void setResourceTransform(ResourceTransform transform) { resourceTransform = std::move(transform); }
 
@@ -195,16 +190,16 @@ private:
 
     void networkIsReachableAgain() {
         // Notify regular priority requests.
-        for (auto& request : allRequests) {
-            if (request->resource.priority == Resource::Priority::Regular) {
-                request->networkIsReachableAgain();
+        for (auto& req : allRequests) {
+            if (req->resource.priority == Resource::Priority::Regular) {
+                req->networkIsReachableAgain();
             }
         }
 
         // Notify low priority requests.
-        for (auto& request : allRequests) {
-            if (request->resource.priority == Resource::Priority::Low) {
-                request->networkIsReachableAgain();
+        for (auto& req : allRequests) {
+            if (req->resource.priority == Resource::Priority::Low) {
+                req->networkIsReachableAgain();
             }
         }
     }
